@@ -1,0 +1,21 @@
+.btn {
+  @apply text-white bg-blue-500 px-2 py-1 rounded-md shadow-md hover:bg-blue-400;
+}
+
+.game-board > div {
+  @apply border p-2;
+  width: 70px;
+  height: 70px;
+}
+
+.game-board > div > button {
+  @apply rounded-full w-full h-full;
+}
+
+.player1 {
+  @apply inline-block h-4 w-4 bg-red-600
+}
+
+.player2 {
+  @apply inline-block h-4 w-4 bg-amber-400
+}
