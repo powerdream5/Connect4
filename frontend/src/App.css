@@ -1,5 +1,38 @@
+#root {
+  @apply min-h-screen bg-slate-50;
+}
+
 .btn {
-  @apply text-white bg-blue-500 px-2 py-1 rounded-md shadow-md hover:bg-blue-400;
+  @apply text-white bg-blue-500 px-8 py-2 rounded-md shadow-md hover:bg-blue-400;
+}
+
+.btn-plain {
+  @apply text-white bg-slate-500 px-8 py-2 rounded-md shadow-md hover:bg-slate-400;
+}
+
+.dashboard {
+  @apply m-auto shadow-md p-8 min-h-screen bg-white;
+  max-width: 1280px;
+}
+
+.gameRoom {
+  @apply m-auto p-8 min-h-screen;
+  max-width: 1280px;
+}
+
+.gameCard {
+  @apply shadow-md p-8 rounded-md bg-slate-50 border;
+  width: 160px;
+  height: 160px;
+}
+
+.gameScore {
+  @apply bg-white p-8 shadow-md;
+  width: 220px;
+}
+
+.gameBoard {
+  @apply bg-white p-8 shadow-md;
 }
 
 .game-board > div {
@@ -13,9 +46,92 @@
 }
 
 .player1 {
-  @apply inline-block h-4 w-4 bg-red-600
+  @apply inline-block h-8 w-8 bg-red-600 rounded-full;
 }
 
 .player2 {
-  @apply inline-block h-4 w-4 bg-amber-400
+  @apply inline-block h-8 w-8 bg-amber-400 rounded-full;
+}
+
+.loader {
+  @apply m-auto;
+  border: 8px solid #f3f3f3; /* Light gray */
+  border-top: 8px solid #3498db; /* Blue */
+  border-radius: 50%;
+  width: 30px;
+  height: 30px;
+  animation: spin 2s linear infinite;
+}
+
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+.board {
+  width: 490px;
+}
+
+.boardCol {
+  @apply cursor-pointer;
+}
+
+.boardGrid {
+  @apply border;
+  width: 70px;
+  height: 70px;
+}
+
+.boardGrid.roof {
+  @apply border-0;
+}
+
+.boardGrid .chip {
+  @apply bg-white rounded-full absolute;
+  width: 56px;
+  height: 56px;
+  top: 8px;
+  left: 8px;
+  right: 8px;
+  transition: top 0.1s ease;
+}
+
+.boardGrid .chip.top {
+  top: 8px !important;
+}
+
+.boardGrid .chip.player1 {
+  @apply bg-red-600;
+}
+
+.boardGrid .chip.player2 {
+  @apply bg-amber-400;
+}
+
+.boardGrid .chip.row1 {
+  top: 78px;
+}
+
+.boardGrid .chip.row2 {
+  top: 148px;
+}
+
+.boardGrid .chip.row3 {
+  top: 218px;
+}
+
+.boardGrid .chip.row4 {
+  top: 288px;
+}
+
+.boardGrid .chip.row5 {
+  top: 358px;
+}
+
+.boardGrid .chip.row6 {
+  top: 428px;
 }

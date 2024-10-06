@@ -9,14 +9,17 @@ import {
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 import GameService from './game.service';
+import {
+  GAME_SYNC_TYPE_IN_FLY,
+  GAME_SYNC_TYPE_START,
+} from 'src/utils/constant';
 
 @WebSocketGateway({
   cors: {
-    origin: '*',  // Enable CORS to allow connections from any origin
+    origin: '*', // Enable CORS to allow connections from any origin
   },
 })
 export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
-
   constructor(private readonly gameService: GameService) {}
 
   @WebSocketServer()
@@ -41,13 +44,45 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   @SubscribeMessage('message_to_room')
-  handleMessageToRoom(
-    @MessageBody() data: { room: string, message: string },
+  async handleMessageToRoom(
+    @MessageBody()
+    data: {
+      room: string;
+      syncType: string;
+      playerIndex: number;
+      game: string;
+    },
   ) {
-    const { room, message } = data;
-    
-    const steps = JSON.parse(message);
-    const output = { steps, winner: this.gameService.findWinner(steps)}
-    this.server.to(room).emit('message_from_room', JSON.stringify(output));
+    const { room, syncType, playerIndex, game } = data;
+
+    switch (syncType) {
+      case GAME_SYNC_TYPE_IN_FLY: {
+        const updatedGame = await this.gameService.updateGameData(
+          JSON.parse(game),
+        );
+        delete updatedGame.posStats;
+
+        this.server
+          .to(room)
+          .emit(
+            'message_from_room',
+            JSON.stringify({ syncType, playerIndex, game: updatedGame }),
+          );
+        break;
+      }
+      case GAME_SYNC_TYPE_START: {
+        const newGame = await this.gameService.restartGame(
+          JSON.parse(game),
+          playerIndex,
+        );
+        this.server
+          .to(room)
+          .emit(
+            'message_from_room',
+            JSON.stringify({ syncType, playerIndex, game: newGame }),
+          );
+        break;
+      }
+    }
   }
 }

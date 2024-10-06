@@ -1,130 +1,296 @@
-import { Inject, Injectable } from "@nestjs/common";
-import CreateGameDto from "./dto/create-game.dto";
-import { CACHE_MANAGER } from "@nestjs/cache-manager";
-import { RedisStore } from "cache-manager-redis-yet";
-import { Cache } from "cache-manager";
+import { Inject, Injectable } from '@nestjs/common';
+import CreateGameDto from './dto/create-game.dto';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
+import { RedisStore } from 'cache-manager-redis-yet';
+import { Cache } from 'cache-manager';
 import { v4 as uuidv4 } from 'uuid';
 import { Game } from './types';
+import JoinGameDto from './dto/join-game.dto';
+
+const GAME_BOARD_WIDTH = 7;
+const GAME_BOARD_HEIGHT = 6;
+const CONNECT_THRESHOLD = 4;
 
 @Injectable()
 export default class GameService {
+  constructor(@Inject(CACHE_MANAGER) private redis: Cache<RedisStore>) {}
 
-    constructor(@Inject(CACHE_MANAGER) private redis: Cache<RedisStore>) {
+  calculate(
+    pos: number,
+    player: number,
+    posStat: Record<number, Record<string, number | Record<string, number>>>,
+  ): number {
+    const currStat = { player, stat: {} };
 
+    const directions = ['t', 'tr', 'r', 'br', 'b', 'bl', 'l', 'tl'];
+    directions.map((d) => {
+      let len = 0;
+      let neighbor = pos;
+      switch (d) {
+        case 't':
+          do {
+            len += 1;
+            neighbor -= GAME_BOARD_WIDTH;
+          } while (neighbor > 0 && posStat[neighbor]?.player === player);
+          break;
+        case 'tr':
+          do {
+            len += 1;
+            neighbor -= GAME_BOARD_WIDTH - 1;
+          } while (
+            neighbor % GAME_BOARD_WIDTH != 0 &&
+            neighbor > 0 &&
+            posStat[neighbor]?.player === player
+          );
+          break;
+        case 'r':
+          do {
+            len += 1;
+            neighbor += 1;
+          } while (
+            neighbor % GAME_BOARD_WIDTH != 0 &&
+            posStat[neighbor]?.player === player
+          );
+          break;
+        case 'br':
+          do {
+            len += 1;
+            neighbor += GAME_BOARD_WIDTH + 1;
+          } while (
+            neighbor % GAME_BOARD_WIDTH != 0 &&
+            neighbor <= GAME_BOARD_WIDTH * GAME_BOARD_HEIGHT &&
+            posStat[neighbor]?.player === player
+          );
+          break;
+        case 'b':
+          do {
+            len += 1;
+            neighbor += GAME_BOARD_WIDTH;
+          } while (
+            neighbor <= GAME_BOARD_WIDTH * GAME_BOARD_HEIGHT &&
+            posStat[neighbor]?.player === player
+          );
+          break;
+        case 'bl':
+          do {
+            len += 1;
+            neighbor += GAME_BOARD_WIDTH - 1;
+          } while (
+            neighbor % GAME_BOARD_WIDTH != 1 &&
+            neighbor <= GAME_BOARD_WIDTH * GAME_BOARD_HEIGHT &&
+            posStat[neighbor]?.player === player
+          );
+          break;
+        case 'l':
+          do {
+            len += 1;
+            neighbor -= 1;
+          } while (
+            neighbor % GAME_BOARD_WIDTH != 1 &&
+            posStat[neighbor]?.player === player
+          );
+          break;
+        case 'tl':
+          do {
+            len += 1;
+            neighbor -= GAME_BOARD_WIDTH + 1;
+          } while (
+            neighbor % GAME_BOARD_WIDTH != 1 &&
+            neighbor > 0 &&
+            posStat[neighbor]?.player === player
+          );
+          break;
+      }
+
+      currStat.stat[d] = len;
+    });
+
+    posStat[pos] = currStat;
+
+    for (let i = 0; i < directions.length; i += 1) {
+      const d = directions[i];
+      if (currStat.stat[d] >= CONNECT_THRESHOLD) {
+        return currStat.player;
+      }
+
+      const connectedNums = currStat.stat[d] - 1;
+      if (connectedNums === 0) {
+        continue;
+      }
+
+      let neighbor;
+      switch (d) {
+        case 't':
+          neighbor = pos - connectedNums * GAME_BOARD_WIDTH;
+          posStat[neighbor].stat['b'] += currStat.stat['b'];
+          if (posStat[neighbor].stat['b'] >= CONNECT_THRESHOLD) {
+            return currStat.player;
+          }
+          break;
+        case 'tr':
+          neighbor = pos - connectedNums * (GAME_BOARD_WIDTH - 1);
+          posStat[neighbor].stat['bl'] += currStat.stat['bl'];
+          if (posStat[neighbor].stat['bl'] >= CONNECT_THRESHOLD) {
+            return currStat.player;
+          }
+          break;
+        case 'r':
+          neighbor = pos + connectedNums;
+          posStat[neighbor].stat['l'] += currStat.stat['l'];
+          if (posStat[neighbor].stat['l'] >= CONNECT_THRESHOLD) {
+            return currStat.player;
+          }
+          break;
+        case 'br':
+          neighbor = pos + connectedNums * (GAME_BOARD_WIDTH + 1);
+          posStat[neighbor].stat['tl'] += currStat.stat['tl'];
+          if (posStat[neighbor].stat['tl'] >= CONNECT_THRESHOLD) {
+            return currStat.player;
+          }
+          break;
+        case 'b':
+          neighbor = pos + connectedNums * GAME_BOARD_WIDTH;
+          posStat[neighbor].stat['t'] += currStat.stat['t'];
+          if (posStat[neighbor].stat['t'] >= CONNECT_THRESHOLD) {
+            return currStat.player;
+          }
+          break;
+        case 'bl':
+          neighbor = pos + connectedNums * (GAME_BOARD_WIDTH - 1);
+          posStat[neighbor].stat['tr'] += currStat.stat['tr'];
+          if (posStat[neighbor].stat['tr'] >= CONNECT_THRESHOLD) {
+            return currStat.player;
+          }
+          break;
+        case 'l':
+          neighbor = pos - connectedNums;
+          posStat[neighbor].stat['r'] += currStat.stat['r'];
+          if (posStat[neighbor].stat['r'] >= CONNECT_THRESHOLD) {
+            return currStat.player;
+          }
+          break;
+        case 'tl':
+          neighbor = pos - connectedNums * (GAME_BOARD_WIDTH + 1);
+          posStat[neighbor].stat['br'] += currStat.stat['br'];
+          if (posStat[neighbor].stat['br'] >= CONNECT_THRESHOLD) {
+            return currStat.player;
+          }
+          break;
+      }
     }
 
-    checkRight(steps:Record<number, number>, index:number, player:number, count:number) {
-        if(count === 4) {
-            return player;
-        }
+    return 0;
+  }
 
-        if(index % 7 === 0) {
-            return 0;
-        }
+  async fetchGame(gameId: string) {
+    return JSON.parse(await this.redis.get(`games:${gameId}`));
+  }
 
-        const neighbor = `${index + 1}`;
-        if(neighbor in steps && steps[neighbor] === player) {
-            return this.checkRight(steps, +neighbor, player, count+1);
-        }
+  async saveGame(game: Game) {
+    await this.redis.set(
+      `games:${game.gameId}`,
+      JSON.stringify(game),
+      3600 * 24 * 1000,
+    );
+  }
 
-        return 0;
+  async updateGameData(game: Game): Promise<Game> {
+    const redisGame = {
+      ...(await this.fetchGame(game.gameId)),
+      ...game,
+    };
+    const posStat = redisGame.posStat ?? {};
+    const winner = game.lastStep
+      ? this.calculate(game.lastStep.pos, game.lastStep.player, posStat)
+      : 0;
+
+    if (winner) {
+      game.player1_ready = false;
+      game.player2_ready = false;
     }
 
-    checkBottom(steps:Record<number, number>, index:number, player:number, count:number) {
-        if(count === 4) {
-            return player;
-        }
-
-        if(index > 42) {
-            return 0;
-        }
-
-        const neighbor = `${index + 7}`;
-        if(neighbor in steps && steps[neighbor] === player) {
-            return this.checkBottom(steps, +neighbor, player, count+1);
-        }
-
-        return 0;
+    if (winner === 1) {
+      game.player1_wins = (game.player1_wins ?? 0) + 1;
+    } else if (winner === 2) {
+      game.player2_wins = (game.player2_wins ?? 0) + 1;
     }
 
-    checkBottomRight(steps:Record<number, number>, index:number, player:number, count:number) {
-        if(count === 4) {
-            return player;
-        }
+    const updatedGame = {
+      ...redisGame,
+      winner,
+      posStat,
+    };
 
-        if(index > 42 || index % 7 === 0) {
-            return 0;
-        }
+    await this.saveGame(updatedGame);
 
-        const neighbor = `${index + 8}`;
-        if(neighbor in steps && steps[neighbor] === player) {
-            return this.checkBottomRight(steps, +neighbor, player, count+1);
-        }
+    return updatedGame;
+  }
 
-        return 0;
-    }
+  async createGame(dto: CreateGameDto): Promise<Game> {
+    const gameId = uuidv4();
+    const game = {
+      gameId,
+      player1_id: dto.userId,
+      player1_name: dto.userName,
+      player1_ready: true,
+      status: 'pending',
+    };
 
-    checkBottomLeft(steps:Record<number, number>, index:number, player:number, count:number) {
-        if(count === 4) {
-            return player;
-        }
+    await this.redis.set(
+      `games:${gameId}`,
+      JSON.stringify(game),
+      3600 * 24 * 1000,
+    );
 
-        if(index > 42 || index % 7 === 1) {
-            return 0;
-        }
+    return game;
+  }
 
-        const neighbor = `${index + 6}`;
-        if(neighbor in steps && steps[neighbor] === player) {
-            return this.checkBottomLeft(steps, +neighbor, player, count+1);
-        }
+  async listGame(): Promise<Game[]> {
+    const games = await this.redis.store.keys('games:*');
 
-        return 0;
-    }
+    return Promise.all(
+      games.map(async (game) => JSON.parse(await this.redis.get(game))),
+    );
+  }
 
-    findWinner(steps: Record<number, number>): number {
-        const indexes = Object.keys(steps);
-        if(indexes.length < 7 ) {
-            return 0;
-        }
+  async joinGame(gameId: string, dto: JoinGameDto): Promise<Game> {
+    try {
+      const game = JSON.parse(await this.redis.get(`games:${gameId}`));
+      if (game && !game.player2_id) {
+        game.player2_id = dto.userId;
+        game.player2_name = dto.userName;
+        game.player2_ready = true;
 
-        indexes.sort();
-
-        let winner = 0;
-        for(let i=0; i<indexes.length; i++) {
-            const player = steps[indexes[i]];
-
-            winner = this.checkRight(steps, +indexes[i], player, 1);
-            winner = winner || this.checkBottom(steps, +indexes[i], player, 1);
-            winner = winner || this.checkBottomRight(steps, +indexes[i], player, 1);
-            winner = winner || this.checkBottomLeft(steps, +indexes[i], player, 1);
-
-            if(winner) {
-                break;
-            }
-        }
-
-        return winner;
-    }
-
-    async createGame(dto: CreateGameDto):Promise<Game> {
-        const gameId = uuidv4();
-        const game = {
-            gameId,
-            player1_id: dto.userId,
-            player1_name: dto.userName,
-            status: "pending"
-        }
-
-        await this.redis.set(`games:${gameId}`, JSON.stringify(game), 3600 * 24 * 1000);
+        await this.redis.set(
+          `games:${gameId}`,
+          JSON.stringify(game),
+          3600 * 24 * 1000,
+        );
 
         return game;
+      }
+      return null;
+    } catch (error) {
+      console.log(error);
     }
 
-    async listGame(): Promise<Game[]> {
-        const games = await this.redis.store.keys('games:*');
+    return null;
+  }
 
-        console.log(games);
+  async restartGame(gameId: string, playerIndex: number): Promise<Game> {
+    const game = await this.fetchGame(gameId);
+    delete game.winner;
+    delete game.lastStep;
+    delete game.posStats;
 
-        return [];
+    if (playerIndex == 1) {
+      game.player1_ready = true;
+    } else if (playerIndex == 2) {
+      game.player2_ready = true;
     }
+
+    await this.saveGame(game);
+
+    return game;
+  }
 }
