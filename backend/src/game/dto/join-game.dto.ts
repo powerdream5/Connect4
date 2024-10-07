@@ -1,12 +1,16 @@
 // src/user/dto/create-user.dto.ts
-import { IsNotEmpty, IsString } from 'class-validator';
+import { IsNotEmpty, IsNumber, IsString } from 'class-validator';
 
 export default class JoinGameDto {
   @IsString()
-  @IsNotEmpty({ message: 'user id is required' })
+  @IsNotEmpty({ message: 'User id is required' })
   userId: string;
 
   @IsString()
-  @IsNotEmpty({ message: 'username is required' })
+  @IsNotEmpty({ message: 'Username is required' })
   userName: string;
+
+  @IsNumber()
+  @IsNotEmpty({ message: 'Player number is required' })
+  playerIndex: number;
 }

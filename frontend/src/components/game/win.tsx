@@ -1,9 +1,12 @@
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faFaceLaughBeam } from "@fortawesome/free-solid-svg-icons";
 
-const Win: React.FC<{ startNewGame: () => void }> = ({ startNewGame }) => {
+const Win: React.FC<{ startNewGame: () => void; exitGame: () => void }> = ({
+  startNewGame,
+  exitGame,
+}) => {
   return (
-    <div className="text-center text-green-500 absolute bg-white left-0 right-0 z-50">
+    <div className="text-center text-green-500 absolute bg-white bg-opacity-70 pb-8 left-0 right-0 z-50">
       <div className="text-3xl">
         <div className="mb-8">
           <FontAwesomeIcon icon={faFaceLaughBeam} size="2xl" />
@@ -22,7 +25,15 @@ const Win: React.FC<{ startNewGame: () => void }> = ({ startNewGame }) => {
             </button>
           </span>
           <span>
-            <button className="btn-plain">Exit</button>
+            <button
+              className="btn-plain"
+              onClick={(e) => {
+                e.preventDefault();
+                exitGame();
+              }}
+            >
+              Exit
+            </button>
           </span>
         </div>
       </div>

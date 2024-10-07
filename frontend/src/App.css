@@ -16,14 +16,18 @@
 }
 
 .gameRoom {
-  @apply m-auto p-8 min-h-screen;
+  @apply m-auto p-9 min-h-screen;
   max-width: 1280px;
 }
 
 .gameCard {
-  @apply shadow-md p-8 rounded-md bg-slate-50 border;
+  @apply shadow-md px-8 py-6 rounded-md bg-slate-50 border;
+  width: 320px;
+}
+
+.cardPlayer {
+  @apply inline-block truncate align-top;
   width: 160px;
-  height: 160px;
 }
 
 .gameScore {

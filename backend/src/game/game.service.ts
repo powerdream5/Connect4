@@ -6,6 +6,11 @@ import { Cache } from 'cache-manager';
 import { v4 as uuidv4 } from 'uuid';
 import { Game } from './types';
 import JoinGameDto from './dto/join-game.dto';
+import {
+  GAME_STATUS_PENDING,
+  GAME_STATUS_IN_FLY,
+  GAME_STATUS_CLOSED,
+} from './../utils/constant';
 
 const GAME_BOARD_WIDTH = 7;
 const GAME_BOARD_HEIGHT = 6;
@@ -38,7 +43,7 @@ export default class GameService {
             len += 1;
             neighbor -= GAME_BOARD_WIDTH - 1;
           } while (
-            neighbor % GAME_BOARD_WIDTH != 0 &&
+            (neighbor - 1) % GAME_BOARD_WIDTH != 0 &&
             neighbor > 0 &&
             posStat[neighbor]?.player === player
           );
@@ -48,7 +53,7 @@ export default class GameService {
             len += 1;
             neighbor += 1;
           } while (
-            neighbor % GAME_BOARD_WIDTH != 0 &&
+            (neighbor - 1) % GAME_BOARD_WIDTH != 0 &&
             posStat[neighbor]?.player === player
           );
           break;
@@ -57,7 +62,7 @@ export default class GameService {
             len += 1;
             neighbor += GAME_BOARD_WIDTH + 1;
           } while (
-            neighbor % GAME_BOARD_WIDTH != 0 &&
+            (neighbor - 1) % GAME_BOARD_WIDTH != 0 &&
             neighbor <= GAME_BOARD_WIDTH * GAME_BOARD_HEIGHT &&
             posStat[neighbor]?.player === player
           );
@@ -76,7 +81,7 @@ export default class GameService {
             len += 1;
             neighbor += GAME_BOARD_WIDTH - 1;
           } while (
-            neighbor % GAME_BOARD_WIDTH != 1 &&
+            (neighbor + 1) % GAME_BOARD_WIDTH != 1 &&
             neighbor <= GAME_BOARD_WIDTH * GAME_BOARD_HEIGHT &&
             posStat[neighbor]?.player === player
           );
@@ -86,7 +91,7 @@ export default class GameService {
             len += 1;
             neighbor -= 1;
           } while (
-            neighbor % GAME_BOARD_WIDTH != 1 &&
+            (neighbor + 1) % GAME_BOARD_WIDTH != 1 &&
             posStat[neighbor]?.player === player
           );
           break;
@@ -95,7 +100,7 @@ export default class GameService {
             len += 1;
             neighbor -= GAME_BOARD_WIDTH + 1;
           } while (
-            neighbor % GAME_BOARD_WIDTH != 1 &&
+            (neighbor + 1) % GAME_BOARD_WIDTH != 1 &&
             neighbor > 0 &&
             posStat[neighbor]?.player === player
           );
@@ -106,6 +111,8 @@ export default class GameService {
     });
 
     posStat[pos] = currStat;
+
+    console.log(currStat);
 
     for (let i = 0; i < directions.length; i += 1) {
       const d = directions[i];
@@ -205,14 +212,14 @@ export default class GameService {
       : 0;
 
     if (winner) {
-      game.player1_ready = false;
-      game.player2_ready = false;
+      redisGame.player1_ready = false;
+      redisGame.player2_ready = false;
     }
 
     if (winner === 1) {
-      game.player1_wins = (game.player1_wins ?? 0) + 1;
+      redisGame.player1_wins = (game.player1_wins ?? 0) + 1;
     } else if (winner === 2) {
-      game.player2_wins = (game.player2_wins ?? 0) + 1;
+      redisGame.player2_wins = (game.player2_wins ?? 0) + 1;
     }
 
     const updatedGame = {
@@ -233,7 +240,7 @@ export default class GameService {
       player1_id: dto.userId,
       player1_name: dto.userName,
       player1_ready: true,
-      status: 'pending',
+      status: GAME_STATUS_PENDING,
     };
 
     await this.redis.set(
@@ -246,21 +253,38 @@ export default class GameService {
   }
 
   async listGame(): Promise<Game[]> {
-    const games = await this.redis.store.keys('games:*');
+    const gameKeys = await this.redis.store.keys('games:*');
 
-    return Promise.all(
-      games.map(async (game) => JSON.parse(await this.redis.get(game))),
+    const games = await Promise.all(
+      gameKeys.map(async (key) => JSON.parse(await this.redis.get(key))),
     );
+
+    return games.filter((game) => game.status !== GAME_STATUS_CLOSED);
   }
 
   async joinGame(gameId: string, dto: JoinGameDto): Promise<Game> {
     try {
       const game = JSON.parse(await this.redis.get(`games:${gameId}`));
-      if (game && !game.player2_id) {
-        game.player2_id = dto.userId;
-        game.player2_name = dto.userName;
-        game.player2_ready = true;
+      if (game) {
+        if (dto.playerIndex == 2) {
+          if (!game.player2_id) {
+            game.player2_id = dto.userId;
+            game.player2_name = dto.userName;
+            game.player2_ready = true;
+          } else {
+            return null;
+          }
+        } else if (dto.playerIndex == 1) {
+          if (!game.player1_id) {
+            game.player1_id = dto.userId;
+            game.player1_name = dto.userName;
+            game.player1_ready = true;
+          } else {
+            return null;
+          }
+        }
 
+        game.status = GAME_STATUS_IN_FLY;
         await this.redis.set(
           `games:${gameId}`,
           JSON.stringify(game),
@@ -269,6 +293,7 @@ export default class GameService {
 
         return game;
       }
+
       return null;
     } catch (error) {
       console.log(error);
@@ -279,14 +304,51 @@ export default class GameService {
 
   async restartGame(gameId: string, playerIndex: number): Promise<Game> {
     const game = await this.fetchGame(gameId);
-    delete game.winner;
-    delete game.lastStep;
-    delete game.posStats;
 
     if (playerIndex == 1) {
       game.player1_ready = true;
     } else if (playerIndex == 2) {
       game.player2_ready = true;
+    }
+
+    if (game.player1_ready && game.player2_ready) {
+      delete game.winner;
+      delete game.lastStep;
+      delete game.posStat;
+      delete game.steps;
+    }
+
+    await this.saveGame(game);
+
+    return game;
+  }
+
+  async exitGame(gameId: string, userId: string): Promise<Game> {
+    const game = await this.fetchGame(gameId);
+
+    delete game.winner;
+    delete game.lastStep;
+    delete game.posStat;
+    delete game.steps;
+    delete game.player1_wins;
+    delete game.player2_wins;
+
+    if (userId === game.player1_id) {
+      game.player1_id = null;
+      game.player1_name = null;
+      game.player1_ready = false;
+      game.player2_ready = true;
+    } else if (userId === game.player2_id) {
+      game.player2_id = null;
+      game.player2_name = null;
+      game.player2_ready = false;
+      game.player1_ready = true;
+    }
+
+    if (game.player1_id || game.player2_id) {
+      game.status = GAME_STATUS_PENDING;
+    } else {
+      game.status = GAME_STATUS_CLOSED;
     }
 
     await this.saveGame(game);

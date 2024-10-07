@@ -6,13 +6,17 @@ import {
   GAME_SYNC_TYPE_IN_FLY,
   GAME_SYNC_TYPE_START,
 } from "../../utils/constant";
+import Status from "./status";
+import { useNavigate } from "react-router-dom";
 
 const Board: React.FC<{
   game: Game;
   syncGame: (game: Game, syncType: string, playerIndex: number) => void;
-}> = ({ game, syncGame }) => {
+  exitGame: () => void;
+}> = ({ game, syncGame, exitGame }) => {
   const [playerIndex, setPlayerIndex] = useState(1);
   const [currentPlayer, setCurrentPlayer] = useState(1);
+  const navigate = useNavigate();
 
   function placeChip(board: HTMLDivElement) {
     const boardGrids = board.querySelectorAll(".chip.top");
@@ -55,9 +59,18 @@ const Board: React.FC<{
         }
       }
 
-      setPlayerIndex(
-        localStorage.getItem("userid") === game.player1_id ? 1 : 2
-      );
+      const pIdx =
+        localStorage.getItem("userid") === game.player1_id
+          ? 1
+          : localStorage.getItem("userid") === game.player2_id
+          ? 2
+          : 0;
+      if (pIdx) {
+        setPlayerIndex(pIdx);
+      } else {
+        navigate("/dashboard");
+        return;
+      }
     }
   }, [game]);
 
@@ -65,19 +78,23 @@ const Board: React.FC<{
     syncGame(game, GAME_SYNC_TYPE_START, playerIndex);
   }
 
+  let winnerInfo = null;
+  const playerReady =
+    playerIndex === 1 ? game.player1_ready : game.player2_ready;
+
+  if (game.winner && !playerReady) {
+    if (game.winner === playerIndex) {
+      winnerInfo = <Win startNewGame={startNewGame} exitGame={exitGame} />;
+    } else {
+      winnerInfo = <Lost startNewGame={startNewGame} exitGame={exitGame} />;
+    }
+  }
+
   return (
     <>
-      {game.winner === playerIndex ? (
-        <Win startNewGame={startNewGame} />
-      ) : game.winner ? (
-        <Lost startNewGame={startNewGame} />
-      ) : null}
-
+      {winnerInfo}
       <div>
-        <span>Player Turn:</span>{" "}
-        <span className="font-bold text-xl">
-          {currentPlayer === 1 ? game.player1_name : game.player2_name}
-        </span>
+        <Status game={game} currentPlayer={currentPlayer}></Status>
       </div>
       <div className="board grid grid-cols-7 mt-8 m-auto relative">
         {Array.from({ length: 7 }).map((_, col) => {

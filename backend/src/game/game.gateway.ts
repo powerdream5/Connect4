@@ -12,7 +12,7 @@ import GameService from './game.service';
 import {
   GAME_SYNC_TYPE_IN_FLY,
   GAME_SYNC_TYPE_START,
-} from 'src/utils/constant';
+} from './../utils/constant';
 
 @WebSocketGateway({
   cors: {
@@ -40,7 +40,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
   ) {
     console.log(`${client.id} join the room ${room}`);
     client.join(room);
-    client.emit('joined_room', room);
+    // client.emit('joined_room', room);
   }
 
   @SubscribeMessage('message_to_room')
@@ -60,7 +60,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
         const updatedGame = await this.gameService.updateGameData(
           JSON.parse(game),
         );
-        delete updatedGame.posStats;
+        delete updatedGame.posStat;
 
         this.server
           .to(room)
@@ -72,7 +72,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       }
       case GAME_SYNC_TYPE_START: {
         const newGame = await this.gameService.restartGame(
-          JSON.parse(game),
+          JSON.parse(game).gameId,
           playerIndex,
         );
         this.server

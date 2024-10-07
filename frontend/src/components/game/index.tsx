@@ -5,17 +5,15 @@ import { useNavigate } from "react-router-dom";
 import Board from "./board";
 import Score from "./score";
 import { Game as GameT } from "../../utils/types";
-import {
-  GAME_SYNC_TYPE_START,
-  GAME_SYNC_TYPE_IN_FLY,
-  GAME_SYNC_TYPE_JOIN,
-} from "../../utils/constant";
+import GameService from "../../services/game.service";
 
-const socket = io("http://localhost:3000");
+const socket_url = import.meta.env.VITE_SERVER_URL;
+const socket = io(socket_url);
 
 const Game: React.FC = () => {
   const navigate = useNavigate();
   const { game, setGame } = useGame();
+  const gameService = new GameService();
 
   useEffect(() => {
     if (!game) {
@@ -34,18 +32,7 @@ const Game: React.FC = () => {
 
         console.log(syncType, game, playerIndex);
 
-        if (
-          syncType === GAME_SYNC_TYPE_IN_FLY ||
-          syncType === GAME_SYNC_TYPE_JOIN
-        ) {
-          setGame(game);
-        } else if (syncType === GAME_SYNC_TYPE_START) {
-          const pidx =
-            game.player1_id === localStorage.getItem("userid") ? 1 : 2;
-          if (pidx === playerIndex) {
-            setGame(game);
-          }
-        }
+        setGame(game);
       });
 
       socket.emit("join_room", game.gameId);
@@ -66,14 +53,27 @@ const Game: React.FC = () => {
     });
   }
 
+  async function exitGame() {
+    const userId = localStorage.getItem("userid");
+    if (game && userId) {
+      if (await gameService.exitGame(game?.gameId, userId)) {
+        localStorage.setItem(game.gameId, "exit");
+
+        setGame(null as unknown as GameT);
+      }
+    }
+  }
+
   return (
     <>
       <div className="gameRoom flex">
-        <div className="gameScore text-center mr-8">
-          {game && <Score game={game} />}
+        <div className="gameScore text-center mr-8 relative">
+          {game && <Score game={game} exitGame={exitGame} />}
         </div>
         <div className="gameBoard shrink w-full relative">
-          {game && <Board game={game} syncGame={syncGame}></Board>}
+          {game && (
+            <Board game={game} syncGame={syncGame} exitGame={exitGame}></Board>
+          )}
         </div>
       </div>
     </>

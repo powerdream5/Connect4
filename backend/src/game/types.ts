@@ -11,5 +11,5 @@ export interface Game {
   player2_wins?: number;
   player_turn?: number;
   lastStep?: { pos: number; player: number };
-  posStats?: Record<number, Record<string, number>>;
+  posStat?: Record<number, Record<string, number>>;
 }
