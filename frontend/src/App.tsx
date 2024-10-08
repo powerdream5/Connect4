@@ -1,57 +1,103 @@
+import { useEffect, useRef, useState } from 'react';
 import './App.css'
-import { useState } from 'react';
-import Username from './components/username';
-import Game from './components/game';
-import GameSerice from './services/game.service';
-import { Game as GameT } from './utils/types';
+import { getDate, getToday, formatTimeTo12Hr } from './utils/helper';
+import CalSerice from './services/cal.service';
 
 function App() {
-  const [username, setUsername] = useState(() => {
-    return localStorage.getItem('username') || '';
-  });
+  const [slots, setSlots] = useState<string[]>([]);
+  const [selectedDate, setSelectedDate] = useState<string>('');
+  const selDate = useRef<HTMLSelectElement>(null);
+  const selDateMobile = useRef<HTMLSelectElement>(null);
+  const calService = new CalSerice();
 
-  const [game, setGame] = useState<GameT>({gameId: '', player1_id: '', player1_name: ''});
+  async function fetchSlots(date:string) {
+    return (await calService.fetchSlots(date)).map((slot) => {
+      return formatTimeTo12Hr(slot.time);
+    })
+  }
 
-  async function createNewGame() {
-    const userId = localStorage.getItem('userid');
-    const username = localStorage.getItem('username');
-    if(userId && username) {
-      const gameService = new GameSerice();
-      const game = await gameService.createGame(userId, username);
-      if(game) {
-        setGame(game);
-      }
-      else {
-        alert("Game creation failed.");
-      }
+  useEffect(()=> {
+    const fetchData = async () => {
+      const today = getToday();
+      const slots = await fetchSlots(today);
+      setSlots(slots);
+      setSelectedDate(today);
+    };
+
+    fetchData();
+  }, []);
+
+  async function handleDateChange() {
+    if(selDate.current) {
+      const slots = await fetchSlots(selDate.current.value);
+      setSlots(slots);
+      setSelectedDate(selDate.current.value);
+    }
+  }
+
+  async function handleDateChangeMobile() {
+    if(selDateMobile.current) {
+      const slots = await fetchSlots(selDateMobile.current.value);
+      setSlots(slots);
+      setSelectedDate(selDateMobile.current.value);
     }
   }
 
   return (
-    <>
-      {
-        (username === '') ? (
-          <Username setUsername={setUsername}></Username>
-        ) : (
-          <>
-            <div className="text-4xl mb-8">Hi {username}</div>
-            {
-              game.gameId ? (
-                <Game game={game}></Game>
-              ) : (
-                <div>
-                  <button className='btn' onClick={(e) => {
-                    e.preventDefault();
+    <div className='h-screen flex md:items-center justify-center bg-slate-100'>
+      <div className='calContainer flex-grow bg-white rounded-lg p-8 flex flex-col md:flex-row overflow-scroll'>
+        <div className='datePick shrink-0 mb-8'>
+          <label className='datePickLg'>
+            Pick a Date:
+            <select ref={selDate} onChange={handleDateChange} size={9}>
+              {
+                getDate().map((date) => {
+                  const selected = (date.value === selectedDate);
+                  return (
+                    <option key={date.value} value={date.value} selected={selected}>{date.label}</option>
+                  )
+                })
+              }
+            </select>
+          </label>
 
-                    createNewGame();
-                  }}>Create New Game</button>
+          <label className='datePickMobile'>
+            <div>Pick a Date:</div>
+            <select ref={selDateMobile} onChange={handleDateChangeMobile}>
+              {
+                getDate().map((date) => {
+                  const selected = (date.value === selectedDate);
+                  return (
+                    <option key={date.value} value={date.value} selected={selected}>{date.label}</option>
+                  )
+                })
+              }
+            </select>
+          </label>
+        </div>
+        <div className='flex flex-grow flex-col'>
+          <div className='mb-8 shrink-0'>
+            Timezone: America/Los Angeles
+          </div>
+          <div className='flex flex-grow flex-wrap overflow-scroll slotContainer'>
+            {
+              slots.length == 0 && (
+                <div>
+                  <span className='text-slate-500'>No Available Slots, Please pick another date.</span>
                 </div>
               )
             }
-          </>
-        )
-      }
-    </>
+            {
+              slots.length > 0 && slots.map((slot) => {
+                return (
+                  <button className='slot' key={slot}>{slot}</button>
+                );
+              })
+            }
+          </div>
+        </div>
+      </div>
+    </div>
   )
 }
 

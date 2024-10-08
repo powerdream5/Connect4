@@ -1,21 +1,35 @@
-.btn {
-  @apply text-white bg-blue-500 px-2 py-1 rounded-md shadow-md hover:bg-blue-400;
+.calContainer {
+  @apply shadow-md min-w-full sm:min-w-[760px] h-full md:h-[500px];
+  max-width: 800px;
 }
 
-.game-board > div {
-  @apply border p-2;
-  width: 70px;
-  height: 70px;
+.datePick {
+  @apply mr-4;
+  width: 220px;
 }
 
-.game-board > div > button {
-  @apply rounded-full w-full h-full;
+.slot {
+  @apply border px-8 py-4 rounded-md inline-block hover:bg-slate-200 mr-4 mb-4;
+  width: 140px;
 }
 
-.player1 {
-  @apply inline-block h-4 w-4 bg-red-600
+select {
+  @apply border;
+  width: 180px;
 }
 
-.player2 {
-  @apply inline-block h-4 w-4 bg-amber-400
+select option {
+  @apply px-4 py-2;
+}
+
+select option::selection{
+  @apply bg-slate-200;
+}
+
+.datePickLg {
+  @apply hidden md:block;
+}
+
+.datePickMobile {
+  @apply block md:hidden;
 }
